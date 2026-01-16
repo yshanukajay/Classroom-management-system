@@ -13,7 +13,7 @@ $modal_classrooms = $mysqli->query("SELECT * FROM classrooms ORDER BY name"); //
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Master Schedule - CAMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/classroom_allocation_management_system/assets/css/style.css">
+    <link rel="stylesheet" href="/Classroom-management-system/assets/css/style.css">
 </head>
 
 <body>
@@ -155,7 +155,7 @@ $modal_classrooms = $mysqli->query("SELECT * FROM classrooms ORDER BY name"); //
     </div>
 
     <!-- Main JS -->
-    <script src="/classroom_allocation_management_system/assets/js/main.js"></script>
+    <script src="/Classroom-management-system/assets/js/main.js"></script>
     <script>
         // Specific init if needed, otherwise handled by main.js logic
         async function deleteAllocation(id) {
@@ -167,7 +167,17 @@ $modal_classrooms = $mysqli->query("SELECT * FROM classrooms ORDER BY name"); //
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: id })
                 });
-                const result = await response.json();
+
+                // Get text first to debug if JSON matches
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    console.error('Server returned invalid JSON:', text);
+                    showToast('Server error: ' + text.substring(0, 50), 'error');
+                    return;
+                }
 
                 if (result.status === 'success') {
                     showToast(result.message);
@@ -177,7 +187,7 @@ $modal_classrooms = $mysqli->query("SELECT * FROM classrooms ORDER BY name"); //
                 }
             } catch (e) {
                 console.error(e);
-                showToast('Error deleting allocation', 'error');
+                showToast('Network error deleting allocation', 'error');
             }
         }
     </script>

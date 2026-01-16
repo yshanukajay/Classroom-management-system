@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up - EduSpace</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="assets/images/logo.png?v=2" type="image/png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 
@@ -44,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
+                <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+                    <img src="assets/images/logo.png" alt="EduSpace Logo" style="width: 48px; height: 48px;">
+                </div>
                 <h1 class="auth-title">Create Account</h1>
                 <p class="auth-subtitle">Join us to manage resources efficiently</p>
             </div>

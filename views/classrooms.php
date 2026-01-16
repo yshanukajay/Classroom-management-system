@@ -16,7 +16,7 @@ $result = $mysqli->query($sql);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classrooms - EduSpace</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/classroom_allocation_management_system/assets/css/style.css">
+    <link rel="stylesheet" href="/Classroom-management-system/assets/css/style.css">
 </head>
 
 <body>
@@ -180,7 +180,7 @@ $result = $mysqli->query($sql);
             </div>
 
             <!-- CRUD JS -->
-            <script src="/classroom_allocation_management_system/assets/js/main.js"></script>
+            <script src="/Classroom-management-system/assets/js/main.js"></script>
             <script>
                 function openClassroomModal() {
                     document.getElementById('modalTitle').innerText = 'Add Classroom';

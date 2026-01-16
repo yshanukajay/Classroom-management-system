@@ -28,6 +28,23 @@ $recentSql = "SELECT a.*, c.name as room_name
               JOIN classrooms c ON a.classroom_id = c.id 
               ORDER BY a.id DESC LIMIT 5";
 $recentAllocations = $mysqli->query($recentSql);
+
+// Upcoming Allocations (Next 3 classes today)
+$currentTime = date('H:i:s');
+$upcomingSql = "SELECT a.*, c.name as room_name 
+                FROM allocations a 
+                JOIN classrooms c ON a.classroom_id = c.id 
+                WHERE day_of_week = '$today' AND start_time > '$currentTime' 
+                ORDER BY start_time ASC LIMIT 3";
+$upcomingAllocations = $mysqli->query($upcomingSql);
+
+// Real-time Availability
+$activeRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Active'");
+$inactiveRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Inactive' OR status = 'Occupied'");
+$activeCount = $activeRes->fetch_assoc()['count'];
+$inactiveCount = $inactiveRes->fetch_assoc()['count'];
+$total = $activeCount + $inactiveCount;
+$availabilityWidth = ($total > 0) ? ($activeCount / $total) * 100 : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,7 +54,7 @@ $recentAllocations = $mysqli->query($recentSql);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - CAMS Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/classroom_allocation_management_system/assets/css/style.css">
+    <link rel="stylesheet" href="/Classroom-management-system/assets/css/style.css">
 </head>
 
 <body>
@@ -53,21 +70,60 @@ $recentAllocations = $mysqli->query($recentSql);
                 <p class="auth-subtitle">Welcome back, <?php echo htmlspecialchars($_SESSION['username']); ?></p>
             </div>
 
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <!-- Quick Actions -->
+                <div class="card" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 class="auth-title" style="font-size: 1.25rem; margin-bottom: 0.5rem;">Quick Actions</h3>
+                        <p class="auth-subtitle" style="margin: 0; font-size: 0.9rem;">Manage your campus efficiently</p>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <a href="schedule.php" class="btn btn-primary" style="text-decoration: none; padding: 0.75rem 1.5rem; width: auto;">+ Book Room</a>
+                        <a href="classrooms.php" class="btn" style="text-decoration: none; padding: 0.75rem 1.5rem; width: auto; background: #F1F5F9; color: var(--text);">Manage Rooms</a>
+                    </div>
+                </div>
+
+                <!-- Real-time Availability Visual -->
+                <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="font-weight: 600; color: var(--text);">Current Availability</span>
+                        <span style="font-weight: 700; color: var(--primary);"><?php echo $activeCount; ?> / <?php echo $total; ?> Free</span>
+                    </div>
+                    <div style="height: 10px; background: #E2E8F0; border-radius: 99px; overflow: hidden;">
+                        <div style="height: 100%; width: <?php echo $availabilityWidth; ?>%; background: var(--success); transition: width 0.5s;"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="stats-grid">
                 <div class="card">
                     <div class="stat-label">Active Classrooms</div>
                     <div class="stat-value"><?php echo $totalClassrooms; ?></div>
                     <div class="badge badge-success">Operational</div>
                 </div>
-                <div class="card">
-                    <div class="stat-label">Today's Utilization</div>
-                    <div class="stat-value"><?php echo $occupancyRate; ?>%</div>
-                    <div class="badge badge-neutral"><?php echo $occupied; ?> rooms in use</div>
-                </div>
-                <div class="card">
-                    <div class="stat-label">Total Requests</div>
-                    <div class="stat-value">--</div>
-                    <div class="badge badge-warning">Coming Soon</div>
+                <!-- Upcoming Classes -->
+                <div class="card" style="grid-column: span 2;">
+                    <div class="stat-label" style="margin-bottom: 1rem;">Upcoming Classes (Next Few Hours)</div>
+                    <?php if ($upcomingAllocations->num_rows > 0): ?>
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <?php while ($up = $upcomingAllocations->fetch_assoc()): ?>
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: #F8FAFC; border-radius: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <div style="width: 40px; height: 40px; background: #EEF2FF; color: var(--primary); display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; font-weight: 700;">
+                                            <?php echo date('H:i', strtotime($up['start_time'])); ?>
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 600; color: var(--text);"><?php echo htmlspecialchars($up['course_name']); ?></div>
+                                            <div style="font-size: 0.85rem; color: var(--text-light);"><?php echo htmlspecialchars($up['room_name']); ?> • <?php echo htmlspecialchars($up['instructor']); ?></div>
+                                        </div>
+                                    </div>
+                                    <span class="badge badge-neutral">Standard</span>
+                                </div>
+                            <?php endwhile; ?>
+                        </div>
+                    <?php else: ?>
+                        <div style="text-align: center; color: var(--text-light); padding: 1rem;">No more classes scheduled for today.</div>
+                    <?php endif; ?>
                 </div>
             </div>
 

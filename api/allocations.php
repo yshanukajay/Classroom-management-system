@@ -3,96 +3,130 @@
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
+// Prevent PHP notices/warnings from corrupting JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
 header('Content-Type: application/json');
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    // Fetch allocations
-    // Optional filters: classroom_id, day_of_week
-    $sql = "SELECT a.*, c.name as classroom_name, c.capacity 
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        // Fetch allocations
+        // Optional filters: classroom_id, day_of_week
+        $sql = "SELECT a.*, c.name as classroom_name, c.capacity 
             FROM allocations a 
             JOIN classrooms c ON a.classroom_id = c.id
             ORDER BY a.day_of_week, a.start_time";
 
-    $result = $mysqli->query($sql);
-    $allocations = [];
-    while ($row = $result->fetch_assoc()) {
-        $allocations[] = $row;
-    }
+        $result = $mysqli->query($sql);
+        $allocations = [];
+        while ($row = $result->fetch_assoc()) {
+            $allocations[] = $row;
+        }
 
-    echo json_encode(['status' => 'success', 'data' => $allocations]);
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Add new allocation
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    if (!$data) {
-        $data = $_POST;
-    }
-
-    $classroom_id = $data['classroom_id'] ?? null;
-    $course_name = $data['course_name'] ?? '';
-    $instructor = $data['instructor'] ?? '';
-    $day_of_week = $data['day_of_week'] ?? '';
-    $start_time = $data['start_time'] ?? '';
-    $end_time = $data['end_time'] ?? '';
-
-    if (!$classroom_id || !$day_of_week || !$start_time || !$end_time) {
-        echo json_encode(['status' => 'error', 'message' => 'Missing required fields']);
+        echo json_encode(['status' => 'success', 'data' => $allocations]);
         exit;
     }
 
-    // Conflict Detection
-    // Check if any booking exists for same room, same day, and time overlaps
-    $stmt = $mysqli->prepare("SELECT count(*) as count FROM allocations 
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Add new allocation
+        $data = json_decode(file_get_contents('php://input'), true);
+
+        if (!$data) {
+            $data = $_POST;
+        }
+
+        $classroom_id = $data['classroom_id'] ?? null;
+        $course_name = $data['course_name'] ?? '';
+        $instructor = $data['instructor'] ?? '';
+        $day_of_week = $data['day_of_week'] ?? '';
+        $start_time = $data['start_time'] ?? '';
+        $end_time = $data['end_time'] ?? '';
+
+        if (!$classroom_id || !$day_of_week || !$start_time || !$end_time) {
+            echo json_encode(['status' => 'error', 'message' => 'Missing required fields']);
+            exit;
+        }
+
+        // Conflict Detection
+        // Check if any booking exists for same room, same day, and time overlaps
+        $stmt = $mysqli->prepare("SELECT count(*) as count FROM allocations 
         WHERE classroom_id = ? 
         AND day_of_week = ? 
         AND (
             (start_time < ? AND end_time > ?)
         )");
 
-    // Logic: (ExistStart < NewEnd) AND (ExistEnd > NewStart)
-    $stmt->bind_param("isss", $classroom_id, $day_of_week, $end_time, $start_time);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
+        // Logic: (ExistStart < NewEnd) AND (ExistEnd > NewStart)
+        $stmt->bind_param("isss", $classroom_id, $day_of_week, $end_time, $start_time);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
 
-    if ($row['count'] > 0) {
-        echo json_encode(['status' => 'error', 'message' => 'Conflict detected! Room is already booked for this time slot.']);
+        if ($row['count'] > 0) {
+            echo json_encode(['status' => 'error', 'message' => 'Conflict detected! Room is already booked for this time slot.']);
+            exit;
+        }
+
+        // Insert
+        $insert = $mysqli->prepare("INSERT INTO allocations (classroom_id, course_name, instructor, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)");
+        $insert->bind_param("isssss", $classroom_id, $course_name, $instructor, $day_of_week, $start_time, $end_time);
+
+        if ($insert->execute()) {
+            // Update classroom status to Inactive
+            $updateStatus = $mysqli->prepare("UPDATE classrooms SET status = 'Inactive' WHERE id = ?");
+            $updateStatus->bind_param("i", $classroom_id);
+            $updateStatus->execute();
+
+            echo json_encode(['status' => 'success', 'message' => 'Allocation created successfully & Classroom set to Inactive']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $mysqli->error]);
+        }
         exit;
     }
 
-    // Insert
-    $insert = $mysqli->prepare("INSERT INTO allocations (classroom_id, course_name, instructor, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?)");
-    $insert->bind_param("isssss", $classroom_id, $course_name, $instructor, $day_of_week, $start_time, $end_time);
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        // Parse input for DELETE
+        $data = json_decode(file_get_contents('php://input'), true);
+        $id = $data['id'] ?? null;
 
-    if ($insert->execute()) {
-        echo json_encode(['status' => 'success', 'message' => 'Allocation created successfully']);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $mysqli->error]);
-    }
-    exit;
-}
+        if (!$id) {
+            echo json_encode(['status' => 'error', 'message' => 'Missing ID']);
+            exit;
+        }
 
-if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    // Parse input for DELETE
-    $data = json_decode(file_get_contents('php://input'), true);
-    $id = $data['id'] ?? null;
+        // Get classroom ID before deleting
+        $getRoom = $mysqli->prepare("SELECT classroom_id FROM allocations WHERE id = ?");
+        $getRoom->bind_param("i", $id);
+        $getRoom->execute();
+        $roomResult = $getRoom->get_result();
+        $roomId = ($roomResult->num_rows > 0) ? $roomResult->fetch_assoc()['classroom_id'] : null;
 
-    if (!$id) {
-        echo json_encode(['status' => 'error', 'message' => 'Missing ID']);
+        $stmt = $mysqli->prepare("DELETE FROM allocations WHERE id = ?");
+        $stmt->bind_param("i", $id);
+
+        if ($stmt->execute()) {
+            // Check if any allocations remain for this room
+            if ($roomId) {
+                $checkRemaining = $mysqli->prepare("SELECT COUNT(*) as count FROM allocations WHERE classroom_id = ?");
+                $checkRemaining->bind_param("i", $roomId);
+                $checkRemaining->execute();
+                $remaining = $checkRemaining->get_result()->fetch_assoc()['count'];
+
+                if ($remaining == 0) {
+                    // No more bookings, set back to Active
+                    $resetStatus = $mysqli->prepare("UPDATE classrooms SET status = 'Active' WHERE id = ?");
+                    $resetStatus->bind_param("i", $roomId);
+                    $resetStatus->execute();
+                }
+            }
+            echo json_encode(['status' => 'success', 'message' => 'Allocation cancelled.']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'Error: ' . $mysqli->error]);
+        }
         exit;
     }
-
-    $stmt = $mysqli->prepare("DELETE FROM allocations WHERE id = ?");
-    $stmt->bind_param("i", $id);
-
-    if ($stmt->execute()) {
-        echo json_encode(['status' => 'success', 'message' => 'Allocation cancelled.']);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Error: ' . $mysqli->error]);
-    }
-    exit;
+} catch (Exception $e) {
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
 ?>

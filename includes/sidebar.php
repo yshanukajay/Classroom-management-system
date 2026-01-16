@@ -3,11 +3,13 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 <aside class="sidebar">
-    <div class="auth-header"
-        style="text-align: left; margin-bottom: 2rem; padding: 0 1rem; display: flex; align-items: center; gap: 0.75rem;">
-        <img src="/classroom_allocation_management_system/assets/images/logo.png" alt="EduSpace Logo"
-            style="width: 28px; height: 28px;">
-        <h2 class="auth-title" style="font-size: 1.5rem; margin: 0;">EduSpace</h2>
+    <div class="auth-header" style="text-align: left; margin-bottom: 2rem; padding: 0 1rem;">
+        <a href="/Classroom-management-system/index.php"
+            style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: inherit;">
+            <img src="/Classroom-management-system/assets/images/logo.png?v=2" alt="EduSpace Logo"
+                style="width: 28px; height: 28px;">
+            <h2 class="auth-title" style="font-size: 1.5rem; margin: 0;">EduSpace</h2>
+        </a>
     </div>
 
     <nav style="padding: 0 1rem;">

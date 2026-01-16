@@ -9,6 +9,10 @@ $total_allocations = $mysqli->query("SELECT COUNT(*) as count FROM allocations")
 $most_busy_day = $mysqli->query("SELECT day_of_week, COUNT(*) as count FROM allocations GROUP BY day_of_week ORDER BY count DESC LIMIT 1")->fetch_assoc();
 $most_used_room = $mysqli->query("SELECT c.name, COUNT(*) as count FROM allocations a JOIN classrooms c ON a.classroom_id = c.id GROUP BY a.classroom_id ORDER BY count DESC LIMIT 1")->fetch_assoc();
 
+// Updates Queries
+$available_classrooms = $mysqli->query("SELECT * FROM classrooms WHERE status = 'Active' ORDER BY name");
+$booked_classrooms = $mysqli->query("SELECT * FROM classrooms WHERE status = 'Inactive' OR status = 'Occupied' ORDER BY name");
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +22,7 @@ $most_used_room = $mysqli->query("SELECT c.name, COUNT(*) as count FROM allocati
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports - EduSpace</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/classroom_allocation_management_system/assets/css/style.css">
+    <link rel="stylesheet" href="/Classroom-management-system/assets/css/style.css">
     <style>
         .report-section {
             background: var(--surface);
@@ -105,6 +109,64 @@ $most_used_room = $mysqli->query("SELECT c.name, COUNT(*) as count FROM allocati
                 </div>
                 <p style="margin-top: 1rem; color: var(--text-light); font-size: 0.85rem;">* Visualization based on
                     static data for demonstration.</p>
+            </div>
+
+            <div class="report-section">
+                <h3 style="margin-bottom: 1.5rem; color: var(--text);">Real-time Updates</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Available List -->
+                    <div>
+                        <h4
+                            style="margin-bottom: 1rem; color: #059669; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="width: 8px; height: 8px; background: #059669; border-radius: 50%;"></span>
+                            Available Classrooms
+                        </h4>
+                        <div
+                            style="background: #ECFDF5; border-radius: 1rem; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                            <?php if ($available_classrooms->num_rows > 0): ?>
+                                <ul style="list-style: none;">
+                                    <?php while ($room = $available_classrooms->fetch_assoc()): ?>
+                                        <li
+                                            style="padding: 0.75rem; border-bottom: 1px solid rgba(16, 185, 129, 0.2); color: #064E3B; font-weight: 500; display: flex; justify-content: space-between;">
+                                            <span><?php echo htmlspecialchars($room['name']); ?></span>
+                                            <span style="font-size: 0.8rem; opacity: 0.8;">Cap:
+                                                <?php echo $room['capacity']; ?></span>
+                                        </li>
+                                    <?php endwhile; ?>
+                                </ul>
+                            <?php else: ?>
+                                <p style="color: #064E3B; text-align: center; padding: 1rem;">No classrooms available.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Booked List -->
+                    <div>
+                        <h4
+                            style="margin-bottom: 1rem; color: #DC2626; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="width: 8px; height: 8px; background: #DC2626; border-radius: 50%;"></span>
+                            Currently Booked / Inactive
+                        </h4>
+                        <div
+                            style="background: #FEF2F2; border-radius: 1rem; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                            <?php if ($booked_classrooms->num_rows > 0): ?>
+                                <ul style="list-style: none;">
+                                    <?php while ($room = $booked_classrooms->fetch_assoc()): ?>
+                                        <li
+                                            style="padding: 0.75rem; border-bottom: 1px solid rgba(239, 68, 68, 0.2); color: #7F1D1D; font-weight: 500; display: flex; justify-content: space-between;">
+                                            <span><?php echo htmlspecialchars($room['name']); ?></span>
+                                            <span class="badge"
+                                                style="background: rgba(255,255,255,0.5); color: #991B1B;">Busy</span>
+                                        </li>
+                                    <?php endwhile; ?>
+                                </ul>
+                            <?php else: ?>
+                                <p style="color: #7F1D1D; text-align: center; padding: 1rem;">No classrooms currently
+                                    booked.</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>

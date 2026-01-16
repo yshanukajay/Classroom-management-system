@@ -59,7 +59,7 @@ function isLoggedIn()
 function requireLogin()
 {
     if (!isLoggedIn()) {
-        header("Location: /classroom_allocation_management_system/login.php");
+        header("Location: /Classroom-management-system/login.php");
         exit;
     }
 }
@@ -67,7 +67,7 @@ function requireLogin()
 function logout()
 {
     session_destroy();
-    header("Location: /classroom_allocation_management_system/login.php");
+    header("Location: /Classroom-management-system/login.php");
     exit;
 }
 
