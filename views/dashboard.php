@@ -5,22 +5,20 @@ requireLogin();
 $pageTitle = "Dashboard";
 
 // Fetch Dynamic Stats
-// 1. Total Classrooms
-$sql = "SELECT COUNT(*) as total FROM classrooms WHERE status = 'Active'";
+// 1. Total Classrooms (all)
+$sql = "SELECT COUNT(*) as total FROM classrooms";
 $res = $mysqli->query($sql);
-$totalClassrooms = $res->fetch_assoc()['total'];
+$totalRooms = $res->fetch_assoc()['total'];
 
-// 2. Pending Allocations (Simulated logic: allocations in future)
-// In a real system you might have a 'status' column in allocations table
-$sql = "SELECT COUNT(*) as count FROM allocations WHERE status = 'Active'"; // Assuming all active for now
-// Actually allocations table didn't have status in initial schema, let's just count total allocations for today to show 'Occupancy'
+// 2. Occupancy (today)
+// Count distinct classrooms that have allocations today to show occupancy
 $today = date('D'); // Mon, Tue...
 $sql = "SELECT COUNT(DISTINCT classroom_id) as occupied FROM allocations WHERE day_of_week = '$today'";
 $res = $mysqli->query($sql);
 $occupied = $res->fetch_assoc()['occupied'];
 
-// Occupancy Rate
-$occupancyRate = ($totalClassrooms > 0) ? round(($occupied / $totalClassrooms) * 100) : 0;
+// Occupancy Rate (based on today's allocations)
+$occupancyRate = ($totalRooms > 0) ? round(($occupied / $totalRooms) * 100) : 0;
 
 // Recent Allocations
 $recentSql = "SELECT a.*, c.name as room_name 
@@ -39,12 +37,33 @@ $upcomingSql = "SELECT a.*, c.name as room_name
 $upcomingAllocations = $mysqli->query($upcomingSql);
 
 // Real-time Availability
-$activeRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Active'");
-$inactiveRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Inactive' OR status = 'Occupied'");
-$activeCount = $activeRes->fetch_assoc()['count'];
+// maintenance rooms
+// occupied today (any time today)
+$occupiedTodayRes = $mysqli->query("SELECT DISTINCT classroom_id FROM allocations WHERE day_of_week = '$today'");
+$occupiedTodayRooms = [];
+while ($r = $occupiedTodayRes->fetch_assoc()) { $occupiedTodayRooms[] = (int)$r['classroom_id']; }
+$occupiedTodayIds = count($occupiedTodayRooms) ? implode(',', $occupiedTodayRooms) : '0';
+// currently occupied right now (based on day and current time)
+$currentTime = date('H:i:s');
+$occupiedNowRes = $mysqli->query("SELECT DISTINCT classroom_id FROM allocations WHERE day_of_week = '$today' AND start_time <= '$currentTime' AND end_time > '$currentTime'");
+$occupiedNowRooms = [];
+while ($r = $occupiedNowRes->fetch_assoc()) { $occupiedNowRooms[] = (int)$r['classroom_id']; }
+// for SQL IN lists
+$occupiedNowIds = count($occupiedNowRooms) ? implode(',', $occupiedNowRooms) : '0';
+// maintenance and inactive counts
+$maintenanceRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Maintenance'");
+$maintenanceCount = $maintenanceRes->fetch_assoc()['count'];
+$inactiveRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Inactive'");
 $inactiveCount = $inactiveRes->fetch_assoc()['count'];
-$total = $activeCount + $inactiveCount;
-$availabilityWidth = ($total > 0) ? ($activeCount / $total) * 100 : 0;
+// unavailable = maintenance OR inactive OR booked for today (union)
+$unavailableRes = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status IN ('Maintenance','Inactive') OR id IN ($occupiedTodayIds)");
+$unavailableCount = $unavailableRes->fetch_assoc()['count'];
+// free count and active stat
+$freeCount = $totalRooms - $unavailableCount;
+if ($freeCount < 0) { $freeCount = 0; }
+$activeCountForStat = $mysqli->query("SELECT COUNT(*) as count FROM classrooms WHERE status = 'Active'")->fetch_assoc()['count'];
+$total = $totalRooms;
+$availabilityWidth = ($total > 0) ? ($freeCount / $total) * 100 : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -87,7 +106,7 @@ $availabilityWidth = ($total > 0) ? ($activeCount / $total) * 100 : 0;
                 <div class="card" style="display: flex; flex-direction: column; justify-content: center;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <span style="font-weight: 600; color: var(--text);">Current Availability</span>
-                        <span style="font-weight: 700; color: var(--primary);"><?php echo $activeCount; ?> / <?php echo $total; ?> Free</span>
+                        <span style="font-weight: 700; color: var(--primary);"><?php echo $freeCount; ?> / <?php echo $total; ?> Free</span>
                     </div>
                     <div style="height: 10px; background: #E2E8F0; border-radius: 99px; overflow: hidden;">
                         <div style="height: 100%; width: <?php echo $availabilityWidth; ?>%; background: var(--success); transition: width 0.5s;"></div>
@@ -98,7 +117,7 @@ $availabilityWidth = ($total > 0) ? ($activeCount / $total) * 100 : 0;
             <div class="stats-grid">
                 <div class="card">
                     <div class="stat-label">Active Classrooms</div>
-                    <div class="stat-value"><?php echo $totalClassrooms; ?></div>
+                    <div class="stat-value"><?php echo $activeCountForStat; ?></div>
                     <div class="badge badge-success">Operational</div>
                 </div>
                 <!-- Upcoming Classes -->

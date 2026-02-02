@@ -73,12 +73,7 @@ try {
         $insert->bind_param("isssss", $classroom_id, $course_name, $instructor, $day_of_week, $start_time, $end_time);
 
         if ($insert->execute()) {
-            // Update classroom status to Inactive
-            $updateStatus = $mysqli->prepare("UPDATE classrooms SET status = 'Inactive' WHERE id = ?");
-            $updateStatus->bind_param("i", $classroom_id);
-            $updateStatus->execute();
-
-            echo json_encode(['status' => 'success', 'message' => 'Allocation created successfully & Classroom set to Inactive']);
+            echo json_encode(['status' => 'success', 'message' => 'Allocation created successfully']);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $mysqli->error]);
         }
@@ -106,20 +101,6 @@ try {
         $stmt->bind_param("i", $id);
 
         if ($stmt->execute()) {
-            // Check if any allocations remain for this room
-            if ($roomId) {
-                $checkRemaining = $mysqli->prepare("SELECT COUNT(*) as count FROM allocations WHERE classroom_id = ?");
-                $checkRemaining->bind_param("i", $roomId);
-                $checkRemaining->execute();
-                $remaining = $checkRemaining->get_result()->fetch_assoc()['count'];
-
-                if ($remaining == 0) {
-                    // No more bookings, set back to Active
-                    $resetStatus = $mysqli->prepare("UPDATE classrooms SET status = 'Active' WHERE id = ?");
-                    $resetStatus->bind_param("i", $roomId);
-                    $resetStatus->execute();
-                }
-            }
             echo json_encode(['status' => 'success', 'message' => 'Allocation cancelled.']);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Error: ' . $mysqli->error]);

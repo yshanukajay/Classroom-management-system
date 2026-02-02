@@ -11,7 +11,15 @@ $most_used_room = $mysqli->query("SELECT c.name, COUNT(*) as count FROM allocati
 
 // Updates Queries
 $available_classrooms = $mysqli->query("SELECT * FROM classrooms WHERE status = 'Active' ORDER BY name");
-$booked_classrooms = $mysqli->query("SELECT * FROM classrooms WHERE status = 'Inactive' OR status = 'Occupied' ORDER BY name");
+// Determine currently occupied classrooms (based on current day and time)
+$today = date('D');
+$currentTime = date('H:i:s');
+$occupiedRooms = [];
+$occupiedRes = $mysqli->query("SELECT DISTINCT classroom_id FROM allocations WHERE day_of_week = '$today' AND start_time <= '$currentTime' AND end_time > '$currentTime'");
+while ($r = $occupiedRes->fetch_assoc()) { $occupiedRooms[] = (int)$r['classroom_id']; }
+$occupiedIds = count($occupiedRooms) ? implode(',', $occupiedRooms) : '0';
+// Booked includes maintenance, inactive, or currently occupied rooms
+$booked_classrooms = $mysqli->query("SELECT * FROM classrooms WHERE status IN ('Maintenance','Inactive') OR id IN ($occupiedIds) ORDER BY name");
 
 ?>
 <!DOCTYPE html>

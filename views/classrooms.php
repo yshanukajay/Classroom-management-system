@@ -7,6 +7,17 @@ requireLogin();
 // Fetch all classrooms
 $sql = "SELECT * FROM classrooms ORDER BY name";
 $result = $mysqli->query($sql);
+// Preload today's allocations to compute dynamic statuses (avoid per-row queries)
+$today = date('D');
+$currentTime = date('H:i:s');
+$allocMap = [];
+$allocRes = $mysqli->query("SELECT classroom_id, SUM(start_time <= '$currentTime' AND end_time > '$currentTime') as now_count, COUNT(*) as today_count FROM allocations WHERE day_of_week = '$today' GROUP BY classroom_id");
+while ($a = $allocRes->fetch_assoc()) {
+    $allocMap[(int)$a['classroom_id']] = [
+        'now' => (int)$a['now_count'],
+        'today' => (int)$a['today_count']
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,10 +118,35 @@ $result = $mysqli->query($sql);
                             </div>
 
                             <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
-                                <span
-                                    style="display: flex; align-items: center; gap: 0.5rem; color: <?php echo $row['status'] === 'Active' ? '#10B981' : '#F59E0B'; ?>; font-weight: 500; font-size: 0.9rem;">
+                                <?php
+                                    // Determine display status: prefer explicit DB status (Maintenance/Inactive), otherwise derive from allocations
+                                    $rid = (int)$row['id'];
+                                    $displayStatus = $row['status'];
+                                    $color = '#10B981'; // green by default
+                                    $dotColor = '';
+                                    $allocNow = $allocMap[$rid]['now'] ?? 0;
+                                    $allocToday = $allocMap[$rid]['today'] ?? 0;
+
+                                    if ($row['status'] === 'Maintenance') {
+                                        $displayStatus = 'Maintenance';
+                                        $color = '#F59E0B';
+                                    } elseif ($row['status'] === 'Inactive') {
+                                        $displayStatus = 'Inactive';
+                                        $color = '#9CA3AF';
+                                    } elseif ($allocNow > 0) {
+                                        $displayStatus = 'Occupied';
+                                        $color = '#DC2626';
+                                    } elseif ($allocToday > 0) {
+                                        $displayStatus = 'Booked Today';
+                                        $color = '#F59E0B';
+                                    } else {
+                                        $displayStatus = 'Active';
+                                        $color = '#10B981';
+                                    }
+                                ?>
+                                <span style="display: flex; align-items: center; gap: 0.5rem; color: <?php echo $color; ?>; font-weight: 500; font-size: 0.9rem;">
                                     <span style="width: 8px; height: 8px; border-radius: 50%; background: currentColor;"></span>
-                                    <?php echo htmlspecialchars($row['status']); ?>
+                                    <?php echo htmlspecialchars($displayStatus); ?>
                                 </span>
                             </div>
                         </div>
